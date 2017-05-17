@@ -260,5 +260,8 @@ paket-files/
 __pycache__/
 *.pyc
 
-# bot config
+# Bot config
 *.config
+
+#VS solution
+*.sln
