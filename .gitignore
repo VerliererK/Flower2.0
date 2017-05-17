@@ -262,6 +262,3 @@ __pycache__/
 
 # Bot config
 *.config
-
-#VS solution
-*.sln
