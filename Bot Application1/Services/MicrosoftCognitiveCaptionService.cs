@@ -66,6 +66,36 @@
             return ProcessAnalysisResult(result);
         }
 
+        // <summary>
+    		/// Gets the AnalysisResult of an image URL.
+    		/// <remarks>
+    		/// This method calls <see cref="IVisionServiceClient.AnalyzeImageAsync(string, string[])"/> and
+    		/// returns the first caption from the returned <see cref="AnalysisResult.Description"/>
+    		/// </remarks>
+    		/// </summary>
+    		/// <param name="url">The URL to an image.</param>
+    		/// <returns>Description if AnalysisResult found, null otherwise.</returns>
+    		public async Task<AnalysisResult> GetAnalysisResultAsync(string url)
+    		{
+    			var client = new VisionServiceClient(ApiKey, ApiRoot);
+    			return await client.AnalyzeImageAsync(url, VisualFeatures);
+    		}
+
+        /// <summary>
+    		/// Gets the AnalysisResult of the image from an image stream.
+    		/// <remarks>
+    		/// This method calls <see cref="IVisionServiceClient.AnalyzeImageAsync(Stream, string[])"/> and
+    		/// returns the first caption from the returned <see cref="AnalysisResult.Description"/>
+    		/// </remarks>
+    		/// </summary>
+    		/// <param name="stream">The stream to an image.</param>
+    		/// <returns>Description if caption found, null otherwise.</returns>
+    		public async Task<AnalysisResult> GetAnalysisResultAsync(Stream stream)
+    		{
+    			var client = new VisionServiceClient(ApiKey, ApiRoot);
+    			return await client.AnalyzeImageAsync(stream, VisualFeatures);
+    		}
+
         /// <summary>
         /// Processes the analysis result.
         /// </summary>

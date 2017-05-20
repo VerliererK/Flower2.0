@@ -1,4 +1,4 @@
-﻿using Microsoft.Bot.Builder.Dialogs;
+using Microsoft.Bot.Builder.Dialogs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using System.Net.Http.Headers;
 using System.IO;
 using System.Net.Http;
+using Microsoft.ProjectOxford.Vision.Contract;
 
 namespace Bot_Application1.Dialogs
 {
@@ -65,30 +66,41 @@ namespace Bot_Application1.Dialogs
             string message = activity.Text;
             // return our reply to the user
             var reply = context.MakeMessage();
-			if (activity.Attachments != null && activity.Attachments.Any()) {
-				reply.Text = "感恩~";
 
+            if (lastValue.Contains("snap") && activity.Attachments != null && activity.Attachments.Any()) {
 				var connector = new ConnectorClient(new Uri(activity.ServiceUrl));
 
 				try
 				{
-					reply.Text = await this.GetCaptionAsync(activity, connector);
+					//TODO: Return a AnalysisResult response then check if person exists in the tag object
+					AnalysisResult analysisResult = await this.GetAnalysisResultAsync(activity, connector);
+                    if (analysisResult != null && analysisResult.Tags.Any()) {
+                        //It's person!
+                    } else {
+                        //不是人在給他一次機會
+                        analysisResult = await this.GetAnalysisResultAsync(activity, connector);
+                        reply.Text = "";
+                    }
+
+					enumerator.MoveNext();
+					var current = enumerator.Current;
+					lastValue = current.Value;
+					reply.AddKeyboardCard<string>(current.Key, current.Value);
 				}
 				catch (ArgumentException e)
 				{
-					reply.Text = "Did you upload an image? I'm more of a visual person. " +
-						"Try sending me an image or an image URL";
+					reply.Text = "你確定你有上傳圖片嗎？圖片流量要收錢耶QAQ";
                 }
-
-				enumerator.MoveNext();
-				var current = enumerator.Current;
-				lastValue = current.Value;
-				reply.AddKeyboardCard<string>(current.Key, current.Value);
+                catch (Exception e)
+                {
+                    reply.Text = "維大力？";
+                }
 			}
 			else if (lastValue != null && lastValue.Length > 0 &&
                 !stupidCompare(lastValue, message, 0.2f))
             {
-                reply.Text = "不要亂回答啦~";
+                reply.Text = "不要亂回答啦～";
+
                 await context.PostAsync(reply);
 
                 var current = enumerator.Current;
@@ -101,7 +113,7 @@ namespace Bot_Application1.Dialogs
                 lastValue = current.Value;
 				if (current.Key == "snap")
 				{
-					reply.Text = "接下來請你拍張照～";
+					reply.Text = "接下來請您做出以下動作並拍照上傳﹍";
 				}
 				else
 				{
@@ -114,7 +126,7 @@ namespace Bot_Application1.Dialogs
                 done = true;
                 enumerator = Question.GetEnumerator();
                 reply.Type = "message";
-                reply.Text = "問答都結束囉～以下是我為你推薦的輪椅";
+                reply.Text = "問答都結束囉！以下是我為你推薦的輪椅﹍";
                 await context.PostAsync(reply);
 
                 reply = context.MakeMessage();
@@ -219,7 +231,7 @@ namespace Bot_Application1.Dialogs
 		}
 
 		/// <summary>
-		/// Gets the JwT token of the bot. 
+		/// Gets the JwT token of the bot.
 		/// </summary>
 		/// <param name="connector"></param>
 		/// <returns>JwT token of the bot</returns>
@@ -242,26 +254,26 @@ namespace Bot_Application1.Dialogs
 		/// <param name="connector">The connector.</param>
 		/// <returns>The caption if found</returns>
 		/// <exception cref="ArgumentException">The activity doesn't contain a valid image attachment or an image URL.</exception>
-		private async Task<string> GetCaptionAsync(Activity activity, ConnectorClient connector)
+		private async Task<AnalysisResult> GetAnalysisResultAsync(Activity activity, ConnectorClient connector)
 		{
 			var imageAttachment = activity.Attachments?.FirstOrDefault(a => a.ContentType.Contains("image"));
 			if (imageAttachment != null)
 			{
 				using (var stream = await GetImageStream(connector, imageAttachment))
 				{
-					return await this.captionService.GetCaptionAsync(stream);
+					return await this.captionService.GetAnalysisResultAsync(stream);
 				}
 			}
 
 			string url;
 			if (TryParseAnchorTag(activity.Text, out url))
 			{
-				return await this.captionService.GetCaptionAsync(url);
+				return await this.captionService.GetAnalysisResultAsync(url);
 			}
 
 			if (Uri.IsWellFormedUriString(activity.Text, UriKind.Absolute))
 			{
-				return await this.captionService.GetCaptionAsync(activity.Text);
+				return await this.captionService.GetAnalysisResultAsync(activity.Text);
 			}
 
 			// If we reach here then the activity is neither an image attachment nor an image URL.
