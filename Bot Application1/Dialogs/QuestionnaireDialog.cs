@@ -21,6 +21,7 @@ namespace Bot_Application1.Dialogs
         private Dictionary<string, string[]>.Enumerator enumerator;
         private string[] lastValue;
         private int imgSendCount = 3;
+        private Random random = new Random();
 
         private ICaptionService captionService = new MicrosoftCognitiveCaptionService();
 
@@ -30,25 +31,18 @@ namespace Bot_Application1.Dialogs
         }
         private void init()
         {
-            //Question.Add("請問您現在有輪椅輔具了嗎？", new string[] { "有", "沒有" });
-            Question.Add("您使用的是哪一種輪椅呢？", new string[] { "非輕量化量產型輪椅", "輕量化量產型輪椅", "量身訂製型輪椅", "高活動型輪椅", "目前沒有輪椅輔具" });
-            Question.Add("目前的輪椅輔具使用情形為？", new string[] { "已損壞不堪修復，需更新", "規格或功能不符使用者現在的需求，需更換", "適合繼續使用，但需要另行購置一部於不同場所使用" });
             Question.Add("請問您是否有被診斷出以下狀況？", new string[] { "中風偏癱( 左 / 右 )", "脊髓損傷( 頸 / 胸 / 腰 / 肩 )", "腦性麻痺", "發展遲緩", "小兒麻痺", "運動神經元疾病", "下肢骨折或截肢", "關節炎", "心肺功能疾病", "肌肉萎縮症" });
-            Question.Add("請問輪椅主要的操作者為？", new string[] { "自己", "照顧者" });
+            Question.Add("請問輪椅主要的操作者為？", new string[] { "自己", "照顧者", "我想重新諮詢" });
 
-            Question.Add("snap", new string[] { "snap" });
-
-            Question.Add("接下來會詢問您關於身體各部位的狀況，請您依照自己的感受 / 醫生的診斷結果回答。", new string[] { "好" });
-            Question.Add("坐姿平衡", new string[] { "良好", "雙手扶持尚可維持平衡", "雙手扶持難以維持平衡" });
-
-            Question.Add("骨盆", new string[] { "正常", "向前 / 後傾", "向左 / 右傾斜", "向左 / 右旋轉" });
-            Question.Add("坐姿時骨盆經常", new string[] { "向前滑動", "向後滑動", "向左滑動", "向右滑動" });
-            Question.Add("脊柱", new string[] { "正常或無明顯變形", "脊柱側彎", "過度前凸(hyperlordosis)", "過度後凸(hyperkyphosis)" });
-            Question.Add("頭部控制", new string[] { "正常", "偶可維持頭部正中位置但控制不佳或耐力不足", "完全無法控制" });
-            Question.Add("肩部", new string[] { "正常", "後縮", "前突" });
-            Question.Add("髖部", new string[] { "正常", "內收", "外展", "風吹式變形", "其他" });
-            Question.Add("膝部", new string[] { "正常", "屈曲變形", "伸直變形" });
-            Question.Add("踝部", new string[] { "正常", "外翻變形", "蹠屈變形" });
+            Question.Add("接下來會詢問您關於身體各部位的狀況，請您依照自己的感受 / 醫生的診斷結果回答。", new string[] { "好", "我想重新諮詢" });
+            Question.Add("坐姿平衡，如果不知道應該選擇哪個選項，請拍一張您的坐姿的照片。", new string[] { "良好", "雙手扶持尚可維持平衡", "雙手扶持難以維持平衡", "我想重新諮詢" });
+            Question.Add("骨盆，如果不知道應該選擇哪個選項，請拍一張您的骨盆的照片。", new string[] { "正常", "向前 / 後傾", "向左 / 右傾斜", "向左 / 右旋轉", "我想重新諮詢" });
+            Question.Add("脊柱，如果不知道應該選擇哪個選項，請拍一張您的背脊的照片。", new string[] { "正常或無明顯變形", "脊柱側彎", "過度前凸(hyperlordosis)", "過度後凸(hyperkyphosis)", "我想重新諮詢" });
+            Question.Add("頭部控制", new string[] { "正常", "偶可維持頭部正中位置但控制不佳或耐力不足", "完全無法控制", "我想重新諮詢" });
+            Question.Add("肩部，如果不知道應該選擇哪個選項，請拍一張您的雙肩的照片。", new string[] { "正常", "後縮", "前突", "我想重新諮詢" });
+            Question.Add("髖部，如果不知道應該選擇哪個選項，請拍一張您的髖部的照片。", new string[] { "正常", "內收", "外展", "風吹式變形", "其他", "我想重新諮詢" });
+            Question.Add("膝部，如果不知道應該選擇哪個選項，請拍一張您的膝部的照片。", new string[] { "正常", "屈曲變形", "伸直變形", "我想重新諮詢" });
+            Question.Add("踝部，如果不知道應該選擇哪個選項，請拍一張您的腳踝的照片。", new string[] { "正常", "外翻變形", "蹠屈變形", "我想重新諮詢" });
 
             enumerator = Question.GetEnumerator();
         }
@@ -74,7 +68,7 @@ namespace Bot_Application1.Dialogs
             // return our reply to the user
             var reply = context.MakeMessage();
 
-            if (lastValue != null && lastValue.Contains("snap") &&
+            if (lastValue != null &&
                 activity.Attachments != null &&
                 activity.Attachments.Any() &&
                 imgSendCount-- >= 0)
@@ -92,8 +86,8 @@ namespace Bot_Application1.Dialogs
                     }
                     else //不是人在給他一次機會
                     {
-                        reply.Text = "不是人喔，在傳一次，你還有 " + imgSendCount + " 次機會 \n\n";
-                        reply.Text += "接下來請您做出以下動作並拍照上傳﹍";
+                        reply.Text = "這不是人阿XD，在給你 " + imgSendCount + " 次機會哦！ \n\n";
+                        reply.Text += enumerator.Current.Key;
                     }
                 }
                 catch (ArgumentException e)
@@ -107,7 +101,7 @@ namespace Bot_Application1.Dialogs
 
                 if (imgSendCount == 0)
                 {
-                    reply.Text = "進行下一題";
+                    reply.Text = "經過分析﹍你是屬於『" + lastValue.ElementAt(random.Next(0, lastValue.Count())) + "』";
                     await context.PostAsync(reply);
                     enumerator.MoveNext();
                     var current = enumerator.Current;
