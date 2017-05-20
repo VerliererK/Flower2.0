@@ -20,14 +20,13 @@ namespace Bot_Application1.Dialogs
         private Dictionary<string, string[]> Question = new Dictionary<string, string[]>();
         private Dictionary<string, string[]>.Enumerator enumerator;
         private string[] lastValue;
+        private int imgSendCount = 3;
 
-		private ICaptionService captionService = new MicrosoftCognitiveCaptionService();
-
-        private bool done = false;
+        private ICaptionService captionService = new MicrosoftCognitiveCaptionService();
 
         public QuestionnaireDialog()
         {
-			init();
+            init();
         }
         private void init()
         {
@@ -37,7 +36,7 @@ namespace Bot_Application1.Dialogs
             Question.Add("請問您是否有被診斷出以下狀況？", new string[] { "中風偏癱( 左 / 右 )", "脊髓損傷( 頸 / 胸 / 腰 / 肩 )", "腦性麻痺", "發展遲緩", "小兒麻痺", "運動神經元疾病", "下肢骨折或截肢", "關節炎", "心肺功能疾病", "肌肉萎縮症" });
             Question.Add("請問輪椅主要的操作者為？", new string[] { "自己", "照顧者" });
 
-			Question.Add("snap", new string[] { "snap" });
+            Question.Add("snap", new string[] { "snap" });
 
             Question.Add("接下來會詢問您關於身體各部位的狀況，請您依照自己的感受 / 醫生的診斷結果回答。", new string[] { "好" });
             Question.Add("坐姿平衡", new string[] { "良好", "雙手扶持尚可維持平衡", "雙手扶持難以維持平衡" });
@@ -64,39 +63,59 @@ namespace Bot_Application1.Dialogs
         {
             var activity = await result as Activity;
             string message = activity.Text;
+            if (!string.IsNullOrEmpty(message) && message.Contains("重新")) {
+                lastValue = null;
+                enumerator = Question.GetEnumerator();
+            }
+            if (!string.IsNullOrEmpty(message) && message.Contains("debug"))
+            {
+                Int32.Parse("debug");
+            }
             // return our reply to the user
             var reply = context.MakeMessage();
 
-            if (lastValue.Contains("snap") && activity.Attachments != null && activity.Attachments.Any()) {
-				var connector = new ConnectorClient(new Uri(activity.ServiceUrl));
+            if (lastValue != null && lastValue.Contains("snap") &&
+                activity.Attachments != null &&
+                activity.Attachments.Any() &&
+                imgSendCount-- >= 0)
+            {
+                var connector = new ConnectorClient(new Uri(activity.ServiceUrl));
 
-				try
-				{
-					//TODO: Return a AnalysisResult response then check if person exists in the tag object
-					AnalysisResult analysisResult = await this.GetAnalysisResultAsync(activity, connector);
-                    if (analysisResult != null && analysisResult.Tags.Any()) {
-                        //It's person!
-                    } else {
-                        //不是人在給他一次機會
-                        analysisResult = await this.GetAnalysisResultAsync(activity, connector);
-                        reply.Text = "";
+                try
+                {
+                    AnalysisResult analysisResult = await this.GetAnalysisResultAsync(activity, connector);
+                    string[] tags = analysisResult?.Description?.Tags;
+                    if (tags != null && tags.Contains("person"))
+                    {
+                        reply.Text = "你是個人喔！";
+                        imgSendCount = 0;
                     }
-
-					enumerator.MoveNext();
-					var current = enumerator.Current;
-					lastValue = current.Value;
-					reply.AddKeyboardCard<string>(current.Key, current.Value);
-				}
-				catch (ArgumentException e)
-				{
-					reply.Text = "你確定你有上傳圖片嗎？圖片流量要收錢耶QAQ";
+                    else //不是人在給他一次機會
+                    {
+                        reply.Text = "不是人喔，在傳一次，你還有 " + imgSendCount + " 次機會 \n\n";
+                        reply.Text += "接下來請您做出以下動作並拍照上傳﹍";
+                    }
+                }
+                catch (ArgumentException e)
+                {
+                    reply.Text = "你確定你有上傳圖片嗎？圖片流量要收錢耶QAQ";
                 }
                 catch (Exception e)
                 {
                     reply.Text = "維大力？";
                 }
-			}
-			else if (lastValue != null && lastValue.Length > 0 &&
+
+                if (imgSendCount == 0)
+                {
+                    reply.Text = "進行下一題";
+                    await context.PostAsync(reply);
+                    enumerator.MoveNext();
+                    var current = enumerator.Current;
+                    lastValue = current.Value;
+                    reply.AddKeyboardCard<string>(current.Key, current.Value);
+                }
+            }
+            else if (lastValue != null && lastValue.Length > 0 &&
                 !stupidCompare(lastValue, message, 0.2f))
             {
                 reply.Text = "不要亂回答啦～";
@@ -111,19 +130,18 @@ namespace Bot_Application1.Dialogs
             {
                 var current = enumerator.Current;
                 lastValue = current.Value;
-				if (current.Key == "snap")
-				{
-					reply.Text = "接下來請您做出以下動作並拍照上傳﹍";
-				}
-				else
-				{
-					reply.AddKeyboardCard<string>(current.Key, current.Value);
-				}
+                if (current.Key == "snap")
+                {
+                    reply.Text = "接下來請您做出以下動作並拍照上傳﹍";
+                }
+                else
+                {
+                    reply.AddKeyboardCard<string>(current.Key, current.Value);
+                }
             }
             else
             {
                 lastValue = null;
-                done = true;
                 enumerator = Question.GetEnumerator();
                 reply.Type = "message";
                 reply.Text = "問答都結束囉！以下是我為你推薦的輪椅﹍";
@@ -177,107 +195,108 @@ namespace Bot_Application1.Dialogs
                     }
                 };
 
-                reply.Attachments = new List<Attachment>() { card1.ToAttachment(), card2.ToAttachment(), card3.ToAttachment()};
+                reply.Attachments = new List<Attachment>() { card1.ToAttachment(), card2.ToAttachment(), card3.ToAttachment() };
             }
+
             await context.PostAsync(reply);
             context.Wait(MessageReceivedAsync);
         }
 
-		private bool stupidCompare(string[] texts, string text, float tor)
-		{
-			float minDis = float.MaxValue;
-			if (texts != null)
-			{
-				foreach (string s in texts)
-				{
-					float compare = ChatUtil.LevenshteinDistance(s, text) / (float)s.Length;
-					if (minDis > compare)
-						minDis = compare;
-				}
-			}
-			return minDis <= tor;
-		}
+        private bool stupidCompare(string[] texts, string text, float tor)
+        {
+            float minDis = float.MaxValue;
+            if (texts != null)
+            {
+                foreach (string s in texts)
+                {
+                    float compare = ChatUtil.LevenshteinDistance(s, text) / (float)s.Length;
+                    if (minDis > compare)
+                        minDis = compare;
+                }
+            }
+            return minDis <= tor;
+        }
 
-		private static async Task<Stream> GetImageStream(ConnectorClient connector, Attachment imageAttachment)
-		{
-			using (var httpClient = new HttpClient())
-			{
-				// The Skype attachment URLs are secured by JwtToken,
-				// you should set the JwtToken of your bot as the authorization header for the GET request your bot initiates to fetch the image.
-				// https://github.com/Microsoft/BotBuilder/issues/662
-				var uri = new Uri(imageAttachment.ContentUrl);
-				if (uri.Host.EndsWith("skype.com") && uri.Scheme == "https")
-				{
-					httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await GetTokenAsync(connector));
-					httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/octet-stream"));
-				}
+        private static async Task<Stream> GetImageStream(ConnectorClient connector, Attachment imageAttachment)
+        {
+            using (var httpClient = new HttpClient())
+            {
+                // The Skype attachment URLs are secured by JwtToken,
+                // you should set the JwtToken of your bot as the authorization header for the GET request your bot initiates to fetch the image.
+                // https://github.com/Microsoft/BotBuilder/issues/662
+                var uri = new Uri(imageAttachment.ContentUrl);
+                if (uri.Host.EndsWith("skype.com") && uri.Scheme == "https")
+                {
+                    httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await GetTokenAsync(connector));
+                    httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/octet-stream"));
+                }
 
-				return await httpClient.GetStreamAsync(uri);
-			}
-		}
+                return await httpClient.GetStreamAsync(uri);
+            }
+        }
 
-		/// <summary>
-		/// Gets the href value in an anchor element.
-		/// </summary>
-		///  Skype transforms raw urls to html. Here we extract the href value from the url
-		/// <param name="text">Anchor tag html.</param>
-		/// <param name="url">Url if valid anchor tag, null otherwise</param>
-		/// <returns>True if valid anchor element</returns>
-		private static bool TryParseAnchorTag(string text, out string url)
-		{
-			var regex = new Regex("^<a href=\"(?<href>[^\"]*)\">[^<]*</a>$", RegexOptions.IgnoreCase);
-			url = regex.Matches(text).OfType<Match>().Select(m => m.Groups["href"].Value).FirstOrDefault();
-			return url != null;
-		}
+        /// <summary>
+        /// Gets the href value in an anchor element.
+        /// </summary>
+        ///  Skype transforms raw urls to html. Here we extract the href value from the url
+        /// <param name="text">Anchor tag html.</param>
+        /// <param name="url">Url if valid anchor tag, null otherwise</param>
+        /// <returns>True if valid anchor element</returns>
+        private static bool TryParseAnchorTag(string text, out string url)
+        {
+            var regex = new Regex("^<a href=\"(?<href>[^\"]*)\">[^<]*</a>$", RegexOptions.IgnoreCase);
+            url = regex.Matches(text).OfType<Match>().Select(m => m.Groups["href"].Value).FirstOrDefault();
+            return url != null;
+        }
 
-		/// <summary>
-		/// Gets the JwT token of the bot.
-		/// </summary>
-		/// <param name="connector"></param>
-		/// <returns>JwT token of the bot</returns>
-		private static async Task<string> GetTokenAsync(ConnectorClient connector)
-		{
-			var credentials = connector.Credentials as MicrosoftAppCredentials;
-			if (credentials != null)
-			{
-				return await credentials.GetTokenAsync();
-			}
+        /// <summary>
+        /// Gets the JwT token of the bot.
+        /// </summary>
+        /// <param name="connector"></param>
+        /// <returns>JwT token of the bot</returns>
+        private static async Task<string> GetTokenAsync(ConnectorClient connector)
+        {
+            var credentials = connector.Credentials as MicrosoftAppCredentials;
+            if (credentials != null)
+            {
+                return await credentials.GetTokenAsync();
+            }
 
-			return null;
-		}
+            return null;
+        }
 
-		/// <summary>
-		/// Gets the caption asynchronously by checking the type of the image (stream vs URL)
-		/// and calling the appropriate caption service method.
-		/// </summary>
-		/// <param name="activity">The activity.</param>
-		/// <param name="connector">The connector.</param>
-		/// <returns>The caption if found</returns>
-		/// <exception cref="ArgumentException">The activity doesn't contain a valid image attachment or an image URL.</exception>
-		private async Task<AnalysisResult> GetAnalysisResultAsync(Activity activity, ConnectorClient connector)
-		{
-			var imageAttachment = activity.Attachments?.FirstOrDefault(a => a.ContentType.Contains("image"));
-			if (imageAttachment != null)
-			{
-				using (var stream = await GetImageStream(connector, imageAttachment))
-				{
-					return await this.captionService.GetAnalysisResultAsync(stream);
-				}
-			}
+        /// <summary>
+        /// Gets the caption asynchronously by checking the type of the image (stream vs URL)
+        /// and calling the appropriate caption service method.
+        /// </summary>
+        /// <param name="activity">The activity.</param>
+        /// <param name="connector">The connector.</param>
+        /// <returns>The caption if found</returns>
+        /// <exception cref="ArgumentException">The activity doesn't contain a valid image attachment or an image URL.</exception>
+        private async Task<AnalysisResult> GetAnalysisResultAsync(Activity activity, ConnectorClient connector)
+        {
+            var imageAttachment = activity.Attachments?.FirstOrDefault(a => a.ContentType.Contains("image"));
+            if (imageAttachment != null)
+            {
+                using (var stream = await GetImageStream(connector, imageAttachment))
+                {
+                    return await this.captionService.GetAnalysisResultAsync(stream);
+                }
+            }
 
-			string url;
-			if (TryParseAnchorTag(activity.Text, out url))
-			{
-				return await this.captionService.GetAnalysisResultAsync(url);
-			}
+            string url;
+            if (TryParseAnchorTag(activity.Text, out url))
+            {
+                return await this.captionService.GetAnalysisResultAsync(url);
+            }
 
-			if (Uri.IsWellFormedUriString(activity.Text, UriKind.Absolute))
-			{
-				return await this.captionService.GetAnalysisResultAsync(activity.Text);
-			}
+            if (Uri.IsWellFormedUriString(activity.Text, UriKind.Absolute))
+            {
+                return await this.captionService.GetAnalysisResultAsync(activity.Text);
+            }
 
-			// If we reach here then the activity is neither an image attachment nor an image URL.
-			throw new ArgumentException("The activity doesn't contain a valid image attachment or an image URL.");
-		}
+            // If we reach here then the activity is neither an image attachment nor an image URL.
+            throw new ArgumentException("The activity doesn't contain a valid image attachment or an image URL.");
+        }
     }
 }
