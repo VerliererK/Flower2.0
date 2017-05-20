@@ -37,35 +37,28 @@ namespace Bot_Application1
 
         private async Task<Activity> HandleSystemMessage(Activity message)
         {
-            if (message.Type == ActivityTypes.DeleteUserData)
+            switch (message.Type)
             {
-                // Implement user deletion here
-                // If we handle user deletion, return a real message
-            }
-            else if (message.Type == ActivityTypes.ConversationUpdate)
-            {
-				// Greet the user the first time the bot is added to a conversation.
-				if (message.MembersAdded.Any(m => m.Id == message.Recipient.Id))
-				{
-					var connector = new ConnectorClient(new Uri(message.ServiceUrl));
+                case ActivityTypes.DeleteUserData:
+                    break;
+                case ActivityTypes.ConversationUpdate:
+                    // Greet the user the first time the bot is added to a conversation.
+                    if (message.MembersAdded.Any(m => m.Id == message.Recipient.Id))
+                    {
+                        var connector = new ConnectorClient(new Uri(message.ServiceUrl));
 
-					var response = message.CreateReply();
-					response.Text = "您好！歡迎來到扶老2.0 ，我們將提供以下服務:\n\n1.輔具評估\n2.推薦最適合輔具\n\nSay Hi 我們就開始吧～";
+                        var response = message.CreateReply();
+                        response.Text = "您好！歡迎來到扶老2.0，我們將提供以下服務:\n\n\n1.身體狀況評估\n\n2.推薦最適合輔具\n\n\n你說「Hi」我們就開始吧～";
 
-					await connector.Conversations.ReplyToActivityAsync(response);
-				}
-			}
-            else if (message.Type == ActivityTypes.ContactRelationUpdate)
-            {
-                // Handle add/remove from contact lists
-                // Activity.From + Activity.Action represent what happened
-            }
-            else if (message.Type == ActivityTypes.Typing)
-            {
-                // Handle knowing tha the user is typing
-            }
-            else if (message.Type == ActivityTypes.Ping)
-            {
+                        await connector.Conversations.ReplyToActivityAsync(response);
+                    }
+                    break;
+                case ActivityTypes.ContactRelationUpdate:
+                    break;
+                case ActivityTypes.Typing:
+                    break;
+                case ActivityTypes.Ping:
+                    break;
             }
 
             return null;
