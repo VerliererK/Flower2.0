@@ -2,7 +2,6 @@ using Microsoft.Bot.Builder.Dialogs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Web;
 using System.Threading.Tasks;
 using Microsoft.Bot.Connector;
 using ImageCaption.Services;
@@ -27,9 +26,9 @@ namespace Bot_Application1.Dialogs
 
         public QuestionnaireDialog()
         {
-            init();
+            Init();
         }
-        private void init()
+        private void Init()
         {
             Question.Add("請問您是否有被診斷出以下狀況？", new string[] { "中風偏癱( 左 / 右 )", "脊髓損傷( 頸 / 胸 / 腰 / 肩 )", "腦性麻痺", "發展遲緩", "小兒麻痺", "運動神經元疾病", "下肢骨折或截肢", "關節炎", "心肺功能疾病", "肌肉萎縮症" });
             Question.Add("請問輪椅主要的操作者為？", new string[] { "自己", "照顧者", "我想重新諮詢" });
@@ -73,35 +72,55 @@ namespace Bot_Application1.Dialogs
                 activity.Attachments.Any() &&
                 imgSendCount-- >= 0)
             {
-                var connector = new ConnectorClient(new Uri(activity.ServiceUrl));
+                Boolean pass = false;
 
                 try
                 {
+                    var connector = new ConnectorClient(new Uri(activity.ServiceUrl));
                     AnalysisResult analysisResult = await this.GetAnalysisResultAsync(activity, connector);
                     string[] tags = analysisResult?.Description?.Tags;
                     if (tags != null && tags.Contains("person"))
                     {
-                        reply.Text = "你是個人喔！";
                         imgSendCount = 0;
+                        pass = true;
                     }
                     else //不是人在給他一次機會
                     {
-                        reply.Text = "這不是人阿XD，在給你 " + imgSendCount + " 次機會哦！ \n\n";
+                        reply.Text = "這不是人阿XD，再給你 " + imgSendCount + " 次機會哦！ \n\n";
                         reply.Text += enumerator.Current.Key;
                     }
                 }
                 catch (ArgumentException e)
                 {
                     reply.Text = "你確定你有上傳圖片嗎？圖片流量要收錢耶QAQ";
+					reply.Text += "系統被你弄得不要不要的，下一題﹍";
+
+					await context.PostAsync(reply);
+					enumerator.MoveNext();
+					var current = enumerator.Current;
+					lastValue = current.Value;
+					reply.AddKeyboardCard<string>(current.Key, current.Value);
                 }
                 catch (Exception e)
                 {
                     reply.Text = "維大力？";
-                }
+					reply.Text += "系統被你弄得不要不要的，下一題﹍";
+
+					await context.PostAsync(reply);
+					enumerator.MoveNext();
+					var current = enumerator.Current;
+					lastValue = current.Value;
+					reply.AddKeyboardCard<string>(current.Key, current.Value);
+                } 
 
                 if (imgSendCount == 0)
                 {
-                    reply.Text = "經過分析﹍你是屬於『" + lastValue.ElementAt(random.Next(0, lastValue.Count())) + "』";
+                    if (pass) {
+                        reply.Text = "經過分析﹍你是屬於『" + lastValue.ElementAt(random.Next(0, lastValue.Count())) + "』";
+                    } else {
+                        reply.Text = "你要拍人啦QQ，下一題﹍";
+                    }
+
                     await context.PostAsync(reply);
                     enumerator.MoveNext();
                     var current = enumerator.Current;
@@ -110,7 +129,7 @@ namespace Bot_Application1.Dialogs
                 }
             }
             else if (lastValue != null && lastValue.Length > 0 &&
-                !stupidCompare(lastValue, message, 0.2f))
+                !StupidCompare(lastValue, message, 0.2f))
             {
                 reply.Text = "不要亂回答啦～";
 
@@ -124,14 +143,7 @@ namespace Bot_Application1.Dialogs
             {
                 var current = enumerator.Current;
                 lastValue = current.Value;
-                if (current.Key == "snap")
-                {
-                    reply.Text = "接下來請您做出以下動作並拍照上傳﹍";
-                }
-                else
-                {
-                    reply.AddKeyboardCard<string>(current.Key, current.Value);
-                }
+                reply.AddKeyboardCard<string>(current.Key, current.Value);
             }
             else
             {
@@ -196,7 +208,7 @@ namespace Bot_Application1.Dialogs
             context.Wait(MessageReceivedAsync);
         }
 
-        private bool stupidCompare(string[] texts, string text, float tor)
+        private bool StupidCompare(string[] texts, string text, float tor)
         {
             float minDis = float.MaxValue;
             if (texts != null)
@@ -219,7 +231,7 @@ namespace Bot_Application1.Dialogs
                 // you should set the JwtToken of your bot as the authorization header for the GET request your bot initiates to fetch the image.
                 // https://github.com/Microsoft/BotBuilder/issues/662
                 var uri = new Uri(imageAttachment.ContentUrl);
-                if (uri.Host.EndsWith("skype.com") && uri.Scheme == "https")
+                if (uri.Host.EndsWith("skype.com", StringComparison.Ordinal) && uri.Scheme == "https")
                 {
                     httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", await GetTokenAsync(connector));
                     httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/octet-stream"));
@@ -250,8 +262,7 @@ namespace Bot_Application1.Dialogs
         /// <returns>JwT token of the bot</returns>
         private static async Task<string> GetTokenAsync(ConnectorClient connector)
         {
-            var credentials = connector.Credentials as MicrosoftAppCredentials;
-            if (credentials != null)
+            if (connector.Credentials is MicrosoftAppCredentials credentials)
             {
                 return await credentials.GetTokenAsync();
             }
@@ -259,15 +270,15 @@ namespace Bot_Application1.Dialogs
             return null;
         }
 
-        /// <summary>
-        /// Gets the caption asynchronously by checking the type of the image (stream vs URL)
-        /// and calling the appropriate caption service method.
-        /// </summary>
-        /// <param name="activity">The activity.</param>
-        /// <param name="connector">The connector.</param>
-        /// <returns>The caption if found</returns>
-        /// <exception cref="ArgumentException">The activity doesn't contain a valid image attachment or an image URL.</exception>
-        private async Task<AnalysisResult> GetAnalysisResultAsync(Activity activity, ConnectorClient connector)
+		/// <summary>
+		/// Gets the caption asynchronously by checking the type of the image (stream vs URL)
+		/// and calling the appropriate caption service method.
+		/// </summary>
+		/// <param name="activity">The activity.</param>
+		/// <param name="connector">The connector.</param>
+		/// <returns>The AnalysisResult if found</returns>
+		/// <exception cref="ArgumentException">The activity doesn't contain a valid image attachment or an image URL.</exception>
+		private async Task<AnalysisResult> GetAnalysisResultAsync(Activity activity, ConnectorClient connector)
         {
             var imageAttachment = activity.Attachments?.FirstOrDefault(a => a.ContentType.Contains("image"));
             if (imageAttachment != null)
@@ -278,8 +289,7 @@ namespace Bot_Application1.Dialogs
                 }
             }
 
-            string url;
-            if (TryParseAnchorTag(activity.Text, out url))
+            if (TryParseAnchorTag(activity.Text, out string url))
             {
                 return await this.captionService.GetAnalysisResultAsync(url);
             }
