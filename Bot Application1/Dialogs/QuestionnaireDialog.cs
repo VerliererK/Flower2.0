@@ -116,7 +116,7 @@ namespace Bot_Application1.Dialogs
                 if (imgSendCount == 0)
                 {
                     if (pass) {
-                        reply.Text = "經過分析﹍你是屬於『" + lastValue.ElementAt(random.Next(0, lastValue.Count())) + "』";
+                        reply.Text = "經過分析﹍你是屬於『" + lastValue.ElementAt(random.Next(0, lastValue.Count() - 1)) + "』";
                     } else {
                         reply.Text = "你要拍人啦QQ，下一題﹍";
                     }
