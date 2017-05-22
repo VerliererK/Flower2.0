@@ -123,8 +123,8 @@ namespace Bot_Application1.Dialogs
 						imgSendCount = 0;
 						pass = true;
 					}
-					else //不是人在給他一次機會
-					{
+                    else if (imgSendCount > 0)//不是人在給他一次機會
+                    {
 						reply.Text = "這不是人阿XD，再給你 " + imgSendCount + " 次機會哦！ \n\n";
 						await context.PostAsync(reply);
                         reply.AddKeyboardCard<string>(enumerator.Current.Key, enumerator.Current.Value);
