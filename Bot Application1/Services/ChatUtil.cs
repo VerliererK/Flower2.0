@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Device.Location;
+
 namespace Bot_Application1
 {
 	public static class ChatUtil
@@ -38,5 +41,31 @@ namespace Bot_Application1
 			}
 			return d[n, m];
 		}
+
+		public static Dictionary<string, string> GetNearestLocation(double lat, double lon, Dictionary<string, string[]> source) {
+            Dictionary<string, string> site = new Dictionary<string, string>();
+            var sourceCoord = new GeoCoordinate(lat, lon);
+
+            Dictionary<string, string[]>.Enumerator enumerator = source.GetEnumerator();
+
+            double distant = 9999999999.0;
+            string choosenKey = null;
+            while (enumerator.MoveNext()) {
+                var current = enumerator.Current;
+                var eCoord = new GeoCoordinate(Convert.ToDouble(current.Value[1]), Convert.ToDouble(current.Value[2]));
+                if (sourceCoord.GetDistanceTo(eCoord) < distant) {
+                    distant = sourceCoord.GetDistanceTo(eCoord);
+                    choosenKey = current.Key;
+                }
+            }
+
+            site.Add("name", source[choosenKey].GetValue(0).ToString());
+            site.Add("lat", source[choosenKey].GetValue(1).ToString());
+			site.Add("lon", source[choosenKey].GetValue(2).ToString());
+            site.Add("phone", source[choosenKey].GetValue(3).ToString());
+            site.Add("dist", distant.ToString());
+
+			return site;
+        }
 	}
 }
