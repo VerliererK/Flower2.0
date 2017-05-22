@@ -126,8 +126,9 @@ namespace Bot_Application1.Dialogs
 					else //不是人在給他一次機會
 					{
 						reply.Text = "這不是人阿XD，再給你 " + imgSendCount + " 次機會哦！ \n\n";
-						reply.Text += enumerator.Current.Key;
-					}
+						await context.PostAsync(reply);
+                        reply.AddKeyboardCard<string>(enumerator.Current.Key, enumerator.Current.Value);
+                    }
 				}
 				catch (ArgumentException e)
 				{
@@ -154,7 +155,8 @@ namespace Bot_Application1.Dialogs
 
 				if (imgSendCount == 0)
 				{
-					if (pass)
+                    imgSendCount = 3;
+                    if (pass)
 					{
 						reply.Text = "經過分析﹍你是屬於『" + lastValue.ElementAt(random.Next(0, lastValue.Count() - 1)) + "』";
 					}
