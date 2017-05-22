@@ -36,7 +36,7 @@ namespace Bot_Application1.Dialogs
 		{
 			Question.Add("請問您是否有被診斷出以下狀況？", new string[] { "中風偏癱( 左 / 右 )", "脊髓損傷( 頸 / 胸 / 腰 / 肩 )", "腦性麻痺", "發展遲緩", "小兒麻痺", "運動神經元疾病", "下肢骨折或截肢", "關節炎", "心肺功能疾病", "肌肉萎縮症" });
 			Question.Add("請問輪椅主要的操作者為？", new string[] { "自己", "照顧者", "我想重新諮詢" });
-
+            
 			Question.Add("接下來會詢問您關於身體各部位的狀況，請您依照自己的感受 / 醫生的診斷結果回答。", new string[] { "好", "我想重新諮詢" });
 			Question.Add("坐姿平衡，如果不知道應該選擇哪個選項，請拍一張您的坐姿的照片。", new string[] { "良好", "雙手扶持尚可維持平衡", "雙手扶持難以維持平衡", "我想重新諮詢" });
 			Question.Add("骨盆，如果不知道應該選擇哪個選項，請拍一張您的骨盆的照片。", new string[] { "正常", "向前 / 後傾", "向左 / 右傾斜", "向左 / 右旋轉", "我想重新諮詢" });
@@ -46,7 +46,7 @@ namespace Bot_Application1.Dialogs
 			Question.Add("髖部，如果不知道應該選擇哪個選項，請拍一張您的髖部的照片。", new string[] { "正常", "內收", "外展", "風吹式變形", "其他", "我想重新諮詢" });
 			Question.Add("膝部，如果不知道應該選擇哪個選項，請拍一張您的膝部的照片。", new string[] { "正常", "屈曲變形", "伸直變形", "我想重新諮詢" });
 			Question.Add("踝部，如果不知道應該選擇哪個選項，請拍一張您的腳踝的照片。", new string[] { "正常", "外翻變形", "蹠屈變形", "我想重新諮詢" });
-
+            
 			Sites.Add("headquarter", new string[] { "臺北市合宜輔具中心", "25.0703276", "121.5195652", "02-77137760", "台北市中山區玉門街1號" });
 			Sites.Add("west", new string[] { "臺北市西區輔具中心", "25.0505644", "121.5185295", "02-2523-7902", "臺北市中山區長安西路5巷2號2樓" });
 			Sites.Add("south", new string[] { "臺北市南區輔具中心", "25.0270075", "121.5673229", "02-27207364", "臺北市信義區信義路5段150巷310號1樓" });
@@ -193,8 +193,8 @@ namespace Bot_Application1.Dialogs
 			{
 				lastValue = null;
 				enumerator = Question.GetEnumerator();
-				Boolean isLocation = random.Next(0, 2).Equals(0);
-				reply.Type = "message";
+                Boolean isLocation = random.Next(0, 2).Equals(0);
+                reply.Type = "message";
 				reply.Text = isLocation ? "沒有適合的選項，請洽離你最近的輔具中心！" : "問答都結束囉！以下是我為你推薦的輪椅﹍";
 				await context.PostAsync(reply);
 
@@ -254,7 +254,7 @@ namespace Bot_Application1.Dialogs
 				{
 					reply.ChannelData = new FacebookMessage
 					(
-						text: "Please share your location with me.",
+						text: "把你的位置告訴我吧！",
 						quickReplies: new List<FacebookQuickReply>
 						{
                         // If content_type is location, title and payload are not used
@@ -269,6 +269,7 @@ namespace Bot_Application1.Dialogs
 					);
 					await context.PostAsync(reply);
 					context.Wait(LocationReceivedAsync);
+                    return;
 				}
 			}
 
@@ -279,9 +280,39 @@ namespace Bot_Application1.Dialogs
 		public async Task LocationReceivedAsync(IDialogContext context, IAwaitable<IMessageActivity> argument)
 		{
 			var msg = await argument;
-			var location = msg.Entities?.Where(t => t.Type == "Place").Select(t => t.GetAs<Place>()).FirstOrDefault();
+           
+            var location = msg.Entities?.Where(t => t.Type == "Place").Select(t => t.GetAs<Place>()).FirstOrDefault();
 			context.Done(location);
-		}
+
+            var geo = (location.Geo as JObject)?.ToObject<GeoCoordinates>();
+            var reply = context.MakeMessage();
+            if (geo != null)
+            {
+                Dictionary<string, string> site = ChatUtil.GetNearestLocation(Convert.ToDouble(geo.Latitude), Convert.ToDouble(geo.Longitude), Sites);
+                double siteLat = Convert.ToDouble(site["lat"]);
+                double siteLon = Convert.ToDouble(site["lon"]);
+
+                reply.Attachments.Add(new HeroCard
+                {
+                    Title = "以Bing maps查看你的位置！",
+                    Buttons = new List<CardAction> {
+                            new CardAction
+                            {
+                                Title = site["name"],
+                                Type = ActionTypes.OpenUrl,
+                                Value = "https://www.google.com.tw//maps/place/" + site["name"] + $"/@{siteLat},{siteLon},15z",
+                                //Value = $"https://www.bing.com/maps/?v=2&cp={siteLat}~{siteLon}&lvl=16&dir=0&sty=c&sp=point.{siteLat}_{siteLon}_You%20are%20here&ignoreoptin=1"
+                            }
+                        }
+
+                }.ToAttachment());
+            }
+            else
+            {
+                reply.Text = "這是哪裡阿﹍";
+            }
+            await context.PostAsync(reply);
+        }
 
 		private bool StupidCompare(string[] texts, string text, float tor)
 		{
