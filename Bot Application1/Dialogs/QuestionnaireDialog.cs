@@ -47,9 +47,9 @@ namespace Bot_Application1.Dialogs
 			Question.Add("膝部，如果不知道應該選擇哪個選項，請拍一張您的膝部的照片。", new string[] { "正常", "屈曲變形", "伸直變形", "我想重新諮詢" });
 			Question.Add("踝部，如果不知道應該選擇哪個選項，請拍一張您的腳踝的照片。", new string[] { "正常", "外翻變形", "蹠屈變形", "我想重新諮詢" });
             
-			Sites.Add("headquarter", new string[] { "臺北市合宜輔具中心", "25.0703276", "121.5195652", "02-77137760", "台北市中山區玉門街1號" });
-			Sites.Add("west", new string[] { "臺北市西區輔具中心", "25.0505644", "121.5185295", "02-2523-7902", "臺北市中山區長安西路5巷2號2樓" });
-			Sites.Add("south", new string[] { "臺北市南區輔具中心", "25.0270075", "121.5673229", "02-27207364", "臺北市信義區信義路5段150巷310號1樓" });
+			Sites.Add("headquarter", new string[] { "臺北市合宜輔具中心", "25.0703276", "121.5195652", "Email：hoyiatc@gmail.com", "電話：臺北市內請撥1999轉5888轉9，專線電話02-77137760", "臺北市中山區玉門街1號(臺北悠活村合宜輔具中心)" });
+			Sites.Add("west", new string[] { "臺北市西區輔具中心", "25.0505644", "121.5185295", "Email：westateden@gmail.com", "電話：02-2523-7902", "地址：臺北市中山區長安西路5巷2號2樓(臺北市政府衛生局舊址後方)" });
+			Sites.Add("south", new string[] { "臺北市南區輔具中心", "25.0270075", "121.5673229", "Email：sdat@diyi.org.tw", "電話：02-27207364 或 02-77137533", "地址：臺北市信義區信義路5段150巷310號1樓" });
 
 			enumerator = Question.GetEnumerator();
 		}
@@ -76,37 +76,7 @@ namespace Bot_Application1.Dialogs
 			// return our reply to the user
 			var reply = context.MakeMessage();
 
-			var place = await result as Place;
-			if (place != default(Place))
-			{
-				var geo = (place.Geo as JObject)?.ToObject<GeoCoordinates>();
-				if (geo != null)
-				{
-                    Dictionary<string, string> site = ChatUtil.GetNearestLocation(Convert.ToDouble(geo.Latitude), Convert.ToDouble(geo.Longitude), Sites);
-                    double siteLat = Convert.ToDouble(site["lat"]);
-                    double siteLon = Convert.ToDouble(site["lon"]);
-
-                    reply.Attachments.Add(new HeroCard
-					{
-						Title = "以Bing maps查看你的位置！",
-						Buttons = new List<CardAction> {
-							new CardAction
-							{
-								Title = site["name"],
-								Type = ActionTypes.OpenUrl,
-								Value = $"https://www.bing.com/maps/?v=2&cp={siteLat}~{siteLon}&lvl=16&dir=0&sty=c&sp=point.{siteLat}_{siteLon}_You%20are%20here&ignoreoptin=1"
-							}
-						}
-
-					}.ToAttachment());
-				}
-				else
-				{
-                    reply.Text = "這是哪裡阿﹍";
-				}
-			}
-
-			else if (lastValue != null &&
+			if (lastValue != null &&
 				activity.Attachments != null &&
 				activity.Attachments.Any() &&
 				imgSendCount-- >= 0)
@@ -193,13 +163,13 @@ namespace Bot_Application1.Dialogs
 			{
 				lastValue = null;
 				enumerator = Question.GetEnumerator();
-                Boolean isLocation = random.Next(0, 2).Equals(0);
+                //Boolean isLocation = random.Next(0, 2).Equals(0);
                 reply.Type = "message";
-				reply.Text = isLocation ? "沒有適合的選項，請洽離你最近的輔具中心！" : "問答都結束囉！以下是我為你推薦的輪椅﹍";
+				reply.Text = "問答都結束囉！以下是我為你推薦的輪椅﹍";
 				await context.PostAsync(reply);
 
-				if (!isLocation)
-				{
+				//if (!isLocation)
+				//{
 					reply = context.MakeMessage();
 					reply.AttachmentLayout = AttachmentLayoutTypes.Carousel;
 
@@ -249,9 +219,10 @@ namespace Bot_Application1.Dialogs
 					};
 
 					reply.Attachments = new List<Attachment>() { card1.ToAttachment(), card2.ToAttachment(), card3.ToAttachment() };
-				}
-				else
-				{
+				//}
+				//else
+				//{
+                    reply.Text = "若有其他關於輔具評估的問題，請按下方按鈕讓我知道你的位置，也可以拖拉地圖以移動地點，我會告訴你專人的資訊喔！";
 					reply.ChannelData = new FacebookMessage
 					(
 						text: "把你的位置告訴我吧！",
@@ -270,7 +241,7 @@ namespace Bot_Application1.Dialogs
 					await context.PostAsync(reply);
 					context.Wait(LocationReceivedAsync);
                     return;
-				}
+				//}
 			}
 
 			await context.PostAsync(reply);
@@ -286,6 +257,7 @@ namespace Bot_Application1.Dialogs
 
             var geo = (location.Geo as JObject)?.ToObject<GeoCoordinates>();
             var reply = context.MakeMessage();
+            reply.Text = "服務您所選地點的輔具中心是...";
             if (geo != null)
             {
                 Dictionary<string, string> site = ChatUtil.GetNearestLocation(Convert.ToDouble(geo.Latitude), Convert.ToDouble(geo.Longitude), Sites);
@@ -294,11 +266,13 @@ namespace Bot_Application1.Dialogs
 
                 reply.Attachments.Add(new HeroCard
                 {
-                    Title = "以Bing maps查看你的位置！",
+                    Title = site["name"],
+                    Subtitle = site["address"],
+                    Text = site["phone"]+ Environment.NewLine + site["email"],
                     Buttons = new List<CardAction> {
                             new CardAction
                             {
-                                Title = site["name"],
+                                Title = "帶我去" + site["name"],
                                 Type = ActionTypes.OpenUrl,
                                 Value = "https://www.google.com.tw//maps/place/" + site["name"] + $"/@{siteLat},{siteLon},15z",
                                 //Value = $"https://www.bing.com/maps/?v=2&cp={siteLat}~{siteLon}&lvl=16&dir=0&sty=c&sp=point.{siteLat}_{siteLon}_You%20are%20here&ignoreoptin=1"

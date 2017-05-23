@@ -62,7 +62,9 @@ namespace Bot_Application1
             site.Add("name", source[choosenKey].GetValue(0).ToString());
             site.Add("lat", source[choosenKey].GetValue(1).ToString());
 			site.Add("lon", source[choosenKey].GetValue(2).ToString());
-            site.Add("phone", source[choosenKey].GetValue(3).ToString());
+            site.Add("email", source[choosenKey].GetValue(3).ToString());
+            site.Add("phone", source[choosenKey].GetValue(4).ToString());
+            site.Add("address", source[choosenKey].GetValue(5).ToString());
             site.Add("dist", distant.ToString());
 
 			return site;
