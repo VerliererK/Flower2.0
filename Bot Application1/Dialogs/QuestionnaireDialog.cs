@@ -275,7 +275,7 @@ namespace Bot_Application1.Dialogs
                 {
                     Title = site["name"],
                     Subtitle = site["address"],
-                    Text = site["phone"] + Environment.NewLine + site["email"],
+                    Text = Environment.NewLine + site["phone"] + Environment.NewLine + site["email"],
                     Buttons = new List<CardAction> {
                             new CardAction
                             {
