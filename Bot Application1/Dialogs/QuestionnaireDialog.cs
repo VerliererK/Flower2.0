@@ -223,10 +223,9 @@ namespace Bot_Application1.Dialogs
                 //}
                 //else
                 //{
-                reply.Text = "若有其他關於輔具評估的問題，請按下方按鈕讓我知道你的位置，也可以拖拉地圖以移動地點，我會告訴你專人的資訊喔！";
                 reply.ChannelData = new FacebookMessage
                 (
-                    text: "把你的位置告訴我吧！",
+                    text: "如果需要輔具中心地點的資訊可以按下方按鈕讓我知道您的位置，我會告訴您離您最近的輔具中心喔！",
                     quickReplies: new List<FacebookQuickReply>
                     {
                         // If content_type is location, title and payload are not used
@@ -264,7 +263,7 @@ namespace Bot_Application1.Dialogs
             }
 
             var geo = (location.Geo as JObject)?.ToObject<GeoCoordinates>();
-            reply.Text = "服務您所選地點的輔具中心是...";
+            reply.Text = "距離您地點最近的輔具中心是...";
             if (geo != null)
             {
                 Dictionary<string, string> site = ChatUtil.GetNearestLocation(Convert.ToDouble(geo.Latitude), Convert.ToDouble(geo.Longitude), Sites);
